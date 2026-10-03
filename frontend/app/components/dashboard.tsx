@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { IssueFilters as FilterBar } from "./issue-filters";
 import { IssueList } from "./issue-list";
+import { NewIssueForm } from "./new-issue-form";
 import { StatCard } from "./stat-card";
 import {
   DEFAULT_FILTERS,
@@ -20,18 +21,23 @@ export interface DashboardProps {
 }
 
 export function Dashboard({ initialIssues }: DashboardProps) {
+  const [issues, setIssues] = useState<Issue[]>(initialIssues);
   const [filters, setFilters] = useState<IssueFilters>(DEFAULT_FILTERS);
   const [sort, setSort] = useState<IssueSort>("newest");
 
   const visible = useMemo(
-    () => sortIssues(filterIssues(initialIssues, filters), sort),
-    [initialIssues, filters, sort],
+    () => sortIssues(filterIssues(issues, filters), sort),
+    [issues, filters, sort],
   );
 
   // Stats describe what is currently on screen, so the tiles stay truthful
   // whenever the filters narrow the list.
   const stats = useMemo(() => computeStats(visible), [visible]);
-  const total = useMemo(() => computeStats(initialIssues), [initialIssues]);
+  const total = useMemo(() => computeStats(issues), [issues]);
+
+  function handleCreated(issue: Issue): void {
+    setIssues((current) => [...current, issue]);
+  }
 
   return (
     <>
@@ -74,7 +80,7 @@ export function Dashboard({ initialIssues }: DashboardProps) {
           onFiltersChange={setFilters}
           onSortChange={setSort}
           resultCount={visible.length}
-          totalCount={initialIssues.length}
+          totalCount={issues.length}
         />
 
         <IssueList
@@ -83,6 +89,8 @@ export function Dashboard({ initialIssues }: DashboardProps) {
           onClear={() => setFilters(DEFAULT_FILTERS)}
         />
       </section>
+
+      <NewIssueForm onCreated={handleCreated} />
     </>
   );
 }
