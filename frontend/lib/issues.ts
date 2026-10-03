@@ -7,6 +7,8 @@ import {
   type IssueStatus,
 } from "./types";
 
+export type { IssuePriority, IssueStatus } from "./types";
+
 export const STATUS_LABELS: Record<IssueStatus, string> = {
   open: "Open",
   in_progress: "In progress",
