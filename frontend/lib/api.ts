@@ -5,6 +5,7 @@ import {
   type ApiValidationError,
   type Issue,
   type IssueCreate,
+  type IssueUpdate,
 } from "./types";
 
 /**
@@ -121,6 +122,24 @@ export async function fetchHealth(): Promise<ApiResult<{ status: string }>> {
 export function createIssue(payload: IssueCreate): Promise<ApiResult<Issue>> {
   return request<Issue>("/api/v1/issues", {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * PUT /api/v1/issues/{id} — responds 200 with the updated issue.
+ *
+ * The backend applies a partial update: any field left out (or sent as null)
+ * is left untouched, so only the changed keys need to be sent. Note there is
+ * no PATCH route; PATCH would return 405.
+ */
+export function updateIssue(
+  id: string,
+  payload: IssueUpdate,
+): Promise<ApiResult<Issue>> {
+  return request<Issue>(`/api/v1/issues/${id}`, {
+    method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });

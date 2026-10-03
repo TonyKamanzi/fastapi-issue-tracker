@@ -20,10 +20,17 @@ export interface DashboardProps {
   initialIssues: Issue[];
 }
 
+interface Notice {
+  kind: "ok" | "error";
+  text: string;
+}
+
 export function Dashboard({ initialIssues }: DashboardProps) {
   const [issues, setIssues] = useState<Issue[]>(initialIssues);
   const [filters, setFilters] = useState<IssueFilters>(DEFAULT_FILTERS);
   const [sort, setSort] = useState<IssueSort>("newest");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
 
   const visible = useMemo(
     () => sortIssues(filterIssues(issues, filters), sort),
@@ -37,6 +44,20 @@ export function Dashboard({ initialIssues }: DashboardProps) {
 
   function handleCreated(issue: Issue): void {
     setIssues((current) => [...current, issue]);
+    setNotice({ kind: "ok", text: `Created "${issue.title}".` });
+  }
+
+  /** The server returns the stored row, so it replaces local state outright. */
+  function handleSaved(updated: Issue): void {
+    setIssues((current) =>
+      current.map((issue) => (issue.id === updated.id ? updated : issue)),
+    );
+    setEditingId(null);
+    setNotice({ kind: "ok", text: `Updated "${updated.title}".` });
+  }
+
+  function handleError(message: string): void {
+    setNotice({ kind: "error", text: message });
   }
 
   return (
@@ -86,8 +107,22 @@ export function Dashboard({ initialIssues }: DashboardProps) {
         <IssueList
           issues={visible}
           activePriority={filters.priority}
+          editingId={editingId}
           onClear={() => setFilters(DEFAULT_FILTERS)}
+          onEdit={setEditingId}
+          onCancelEdit={() => setEditingId(null)}
+          onSaved={handleSaved}
+          onError={handleError}
         />
+
+        <p
+          aria-live="polite"
+          className={`mt-3 min-h-5 text-sm ${
+            notice?.kind === "error" ? "text-rose-300" : "text-emerald-300"
+          }`}
+        >
+          {notice?.text}
+        </p>
       </section>
 
       <NewIssueForm onCreated={handleCreated} />
