@@ -54,10 +54,16 @@ async function toApiError(response: Response): Promise<ApiError> {
  * Network-level failures are turned into an ApiError rather than thrown, so a
  * stopped backend degrades the page instead of crashing the render.
  */
-async function request<T>(
-  path: string,
-  init: RequestInit = {},
-): Promise<ApiResult<T>> {
+type RawResult =
+  | { ok: true; response: Response }
+  | { ok: false; error: ApiError };
+
+/**
+ * Performs the request and normalises transport and HTTP failures. The raw
+ * Response is handed back to the caller so that endpoints which answer 204 with
+ * no body are never asked to parse JSON.
+ */
+async function send(path: string, init: RequestInit = {}): Promise<RawResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
@@ -71,7 +77,7 @@ async function request<T>(
       return { ok: false, error: await toApiError(response) };
     }
 
-    return { ok: true, data: (await response.json()) as T };
+    return { ok: true, response };
   } catch (cause) {
     const aborted = cause instanceof Error && cause.name === "AbortError";
     return {
@@ -87,6 +93,28 @@ async function request<T>(
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function request<T>(
+  path: string,
+  init: RequestInit = {},
+): Promise<ApiResult<T>> {
+  const raw = await send(path, init);
+  if (!raw.ok) return raw;
+  return { ok: true, data: (await raw.response.json()) as T };
+}
+
+/**
+ * For endpoints that answer with an empty body. Calling `.json()` on a 204
+ * would throw, and because the throw happens inside `send`, it would surface
+ * as a bogus "could not reach the API" error.
+ */
+async function requestVoid(
+  path: string,
+  init: RequestInit = {},
+): Promise<ApiResult<null>> {
+  const raw = await send(path, init);
+  return raw.ok ? { ok: true, data: null } : raw;
 }
 
 /**
@@ -143,6 +171,14 @@ export function updateIssue(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+}
+
+/**
+ * DELETE /api/v1/issues/{id} — responds 204 with no body, so it must not be
+ * routed through `request`, which parses JSON.
+ */
+export function deleteIssue(id: string): Promise<ApiResult<null>> {
+  return requestVoid(`/api/v1/issues/${id}`, { method: "DELETE" });
 }
 
 /**

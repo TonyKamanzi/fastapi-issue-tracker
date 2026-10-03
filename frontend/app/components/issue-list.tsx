@@ -12,6 +12,7 @@ export interface IssueListProps {
   onEdit: (id: string) => void;
   onCancelEdit: () => void;
   onSaved: (issue: Issue) => void;
+  onDeleted: (id: string) => void;
   onError: (message: string) => void;
 }
 
@@ -23,6 +24,7 @@ export function IssueList({
   onEdit,
   onCancelEdit,
   onSaved,
+  onDeleted,
   onError,
 }: IssueListProps) {
   if (issues.length === 0) {
@@ -54,6 +56,7 @@ export function IssueList({
           onEdit={() => onEdit(issue.id)}
           onCancelEdit={onCancelEdit}
           onSaved={onSaved}
+          onDeleted={onDeleted}
           onError={onError}
         />
       ))}

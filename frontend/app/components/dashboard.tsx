@@ -56,6 +56,13 @@ export function Dashboard({ initialIssues }: DashboardProps) {
     setNotice({ kind: "ok", text: `Updated "${updated.title}".` });
   }
 
+  function handleDeleted(id: string): void {
+    setIssues((current) => current.filter((issue) => issue.id !== id));
+    // The deleted row may have been the one open in the editor.
+    setEditingId((current) => (current === id ? null : current));
+    setNotice({ kind: "ok", text: "Issue deleted." });
+  }
+
   function handleError(message: string): void {
     setNotice({ kind: "error", text: message });
   }
@@ -112,6 +119,7 @@ export function Dashboard({ initialIssues }: DashboardProps) {
           onEdit={setEditingId}
           onCancelEdit={() => setEditingId(null)}
           onSaved={handleSaved}
+          onDeleted={handleDeleted}
           onError={handleError}
         />
 
