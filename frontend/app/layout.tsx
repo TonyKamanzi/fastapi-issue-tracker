@@ -13,8 +13,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Issue Track",
-  description: "Issue Track home page",
+  title: {
+    default: "IssueTrack",
+    template: "%s · IssueTrack",
+  },
+  description:
+    "Track, triage and report issues against the Issue Tracker API built with FastAPI.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -23,7 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="flex min-h-full flex-col font-sans">{children}</body>
     </html>
   );
 }
