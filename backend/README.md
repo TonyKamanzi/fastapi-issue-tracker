@@ -51,6 +51,16 @@ fastapi dev main.py
 
 The API will be available at `http://localhost:8000`
 
+## Configuration
+
+Copy `.env.example` to `.env` and adjust as needed. `.env` is gitignored; do not commit it.
+
+| Variable       | Required | Description                                                    |
+| -------------- | -------- | -------------------------------------------------------------- |
+| `CORS_ORIGINS` | no       | Comma-separated origins allowed to call the API cross-origin    |
+
+Unset by default, which denies all cross-origin requests.
+
 ## API Documentation
 
 Once running, visit:
@@ -124,17 +134,30 @@ async def timing_middleware(request: Request, call_next):
 
 ### CORS Middleware
 
-Enables cross-origin requests from frontend applications:
+Cross-origin access is denied by default. Allowed origins come from the `CORS_ORIGINS` environment variable as a comma-separated list; when it is unset, `allow_origins` is empty and every cross-origin request is rejected:
 
 ```python
+def allowed_origins() -> list[str]:
+    raw = os.getenv("CORS_ORIGINS", "")
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=allowed_origins(),
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type"],
 )
 ```
+
+Set it only if a client needs to call this API directly from its own origin, for example during frontend development:
+
+```bash
+CORS_ORIGINS=http://localhost:3000
+```
+
+The frontend in this repository reverse-proxies the API through its own origin, so browser requests arrive same-origin and never need CORS. Swagger UI is served by this API and is same-origin with it, so it works with `CORS_ORIGINS` unset.
 
 ## Project Structure
 
