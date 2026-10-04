@@ -3,3 +3,6 @@ __pycache__
 *.pyc
 .env
 data
+
+# ...but the template is committed so the required variables are discoverable.
+!.env.example
