@@ -4,7 +4,7 @@ import { Dashboard } from "./components/dashboard";
 import { Hero } from "./components/hero";
 import { SiteFooter } from "./components/site-footer";
 import { SiteHeader } from "./components/site-header";
-import { API_BASE_URL, fetchHealth, fetchIssues } from "@/lib/api";
+import { fetchHealth, fetchIssues } from "@/lib/api";
 import { computeStats } from "@/lib/issues";
 
 export const metadata = {
@@ -13,7 +13,11 @@ export const metadata = {
     "Track, triage and report issues against the Issue Tracker API built with FastAPI.",
 };
 
-const DOCS_URL = `${API_BASE_URL}/docs`;
+/**
+ * Relative so it stays same-origin. `next.config.ts` proxies it to the backend,
+ * which keeps the backend URL out of the rendered HTML.
+ */
+const DOCS_URL = "/docs";
 
 export default async function Page() {
   // Fetched in parallel; neither call rejects, so one failure cannot block
@@ -28,7 +32,10 @@ export default async function Page() {
       <>
         <SiteHeader docsUrl={DOCS_URL} />
         <main className="flex-1">
-          <ApiUnavailable error={issuesResult.error} />
+          <ApiUnavailable
+            error={issuesResult.error}
+            showLocalHint={process.env.NODE_ENV === "development"}
+          />
         </main>
         <SiteFooter docsUrl={DOCS_URL} />
       </>

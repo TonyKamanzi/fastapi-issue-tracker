@@ -9,15 +9,56 @@ import {
 } from "./types";
 
 /**
- * The backend runs on port 8000 by default (`fastapi dev main.py`).
- * The env var is optional: `.env.local` is gitignored, so the fallback keeps
- * the app working on a fresh clone with no configuration.
+ * Absolute URL of the FastAPI backend, used only for requests made from the
+ * server (the `page.tsx` Server Component).
+ *
+ * This variable is deliberately NOT `NEXT_PUBLIC_`-prefixed. Next.js replaces
+ * non-public `process.env` references with `undefined` inside the client
+ * bundle, so the backend URL cannot leak to visitors through devtools. Requests
+ * made from the browser go to same-origin relative paths instead and are
+ * reverse-proxied by `next.config.ts`.
+ *
+ * There is no hardcoded fallback: a default would be inlined into the client
+ * bundle, and silently defaulting would deploy a site that quietly points at the
+ * wrong host. A missing value is reported as an error result instead.
  */
-export const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
-).replace(/\/+$/, "");
+export const API_BASE_URL = (process.env.API_BASE_URL ?? "")
+  .trim()
+  .replace(/\/+$/, "");
 
-const REQUEST_TIMEOUT_MS = 8000;
+/**
+ * Generous, because the backend is on a free Render plan: a free instance spins
+ * down when idle and needs roughly 10s (occasionally longer) to boot again, so
+ * a short timeout would fail exactly when a user first arrives. When the wait
+ * really is exceeded, the caller surfaces a retry affordance instead of hanging.
+ */
+const REQUEST_TIMEOUT_MS = 30000;
+
+/** True while running on the Next.js server, false inside the browser. */
+function isServer(): boolean {
+  return typeof window === "undefined";
+}
+
+/**
+ * Builds the URL for a request.
+ *
+ * On the server the absolute backend URL is used. In the browser the path is
+ * left relative so it hits our own origin and is proxied server-side.
+ */
+function resolveUrl(path: string): string {
+  return isServer() ? `${API_BASE_URL}${path}` : path;
+}
+
+/**
+ * Where a failed request was aimed, for the server log only.
+ *
+ * This must never reach an error message that gets rendered: `ApiUnavailable`
+ * displays `error.message` in the HTML, which would publish the backend URL to
+ * every visitor at the exact moment the API is down.
+ */
+function logServerFailure(message: string): void {
+  if (isServer()) console.error(`[api] ${message} (API_BASE_URL: ${API_BASE_URL})`);
+}
 
 function isValidationErrorArray(
   detail: ApiErrorDetail,
@@ -64,11 +105,25 @@ type RawResult =
  * no body are never asked to parse JSON.
  */
 async function send(path: string, init: RequestInit = {}): Promise<RawResult> {
+  // Fail with an actionable message rather than fetching a URL that is only
+  // half-built, which would otherwise surface as a confusing network error.
+  if (isServer() && !API_BASE_URL) {
+    return {
+      ok: false,
+      error: {
+        status: 0,
+        detail: "The API base URL is not configured.",
+        message:
+          "API_BASE_URL is not set. Copy frontend/.env.example to frontend/.env.local and set it to the backend's absolute URL.",
+      },
+    };
+  }
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
+    const response = await fetch(resolveUrl(path), {
       ...init,
       signal: controller.signal,
     });
@@ -80,14 +135,18 @@ async function send(path: string, init: RequestInit = {}): Promise<RawResult> {
     return { ok: true, response };
   } catch (cause) {
     const aborted = cause instanceof Error && cause.name === "AbortError";
+    const summary = aborted
+      ? "The API request timed out."
+      : "Could not reach the API.";
+    logServerFailure(`${summary} path=${path} cause=${String(cause)}`);
     return {
       ok: false,
       error: {
         status: 0,
-        detail: aborted ? "The API request timed out." : "Could not reach the API.",
+        detail: summary,
         message: aborted
-          ? `The API at ${API_BASE_URL} did not respond in time.`
-          : `Could not reach the API at ${API_BASE_URL}. Is the backend running?`,
+          ? "The API did not respond in time. It may be starting up — try again in a moment."
+          : "Could not reach the API. It may be starting up or temporarily unavailable — try again in a moment.",
       },
     };
   } finally {

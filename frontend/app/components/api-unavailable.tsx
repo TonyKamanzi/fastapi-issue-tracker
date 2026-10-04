@@ -9,8 +9,17 @@ import type { ApiError } from "@/lib/types";
  * Shown when the server fetch failed. Retrying re-runs the Server Component
  * rather than fetching from the browser, so the dashboard recovers from a
  * single source of truth.
+ *
+ * `showLocalHint` gates the "start the backend yourself" instructions to
+ * development: on a deployed site the backend is not the visitor's to start.
  */
-export function ApiUnavailable({ error }: { error: ApiError }) {
+export function ApiUnavailable({
+  error,
+  showLocalHint,
+}: {
+  error: ApiError;
+  showLocalHint: boolean;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [retrying, setRetrying] = useState(false);
@@ -54,11 +63,13 @@ export function ApiUnavailable({ error }: { error: ApiError }) {
             {busy ? "Retrying…" : "Retry"}
           </button>
 
-          <p className="font-mono text-xs text-faint">
-            Start the backend with{" "}
-            <span className="text-muted">fastapi dev main.py</span> in{" "}
-            <span className="text-muted">backend/</span>
-          </p>
+          {showLocalHint && (
+            <p className="font-mono text-xs text-faint">
+              Start the backend with{" "}
+              <span className="text-muted">fastapi dev main.py</span> in{" "}
+              <span className="text-muted">backend/</span>
+            </p>
+          )}
         </div>
       </div>
     </section>
